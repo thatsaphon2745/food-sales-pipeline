@@ -70,18 +70,35 @@ This will:
 1. Start PostgreSQL (`postgres:17`)
 2. Run the ingestion job after Postgres is healthy
 3. Load Excel → staging → merge into production table `food_sales`
+4. (Optional) View the logs of the ingestion service to monitor progress:
+  ```bash
+    docker compose logs -f ingest
+  ```
 
 ### 2. Run via CLI (Local Python)
+#### Create a virtual environment and install dependencies:
 ```bash
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-
-python ingest/ingest_foodsales.py \
-  --excel-path "./data/[For candidate] de_challenge_data.xlsx" \
-  --sheet FoodSales \
-  --header-row 1
 ```
+Then, you can run the ingestion script in two ways:
+#### 🔹Option A: Use config values from `.env` (easiest)
+```bash
+python ingest/ingest_foodsales.py
+```
+#### 🔹 Option B: Provide arguments to override `.env` values
+```bash
+python ingest/ingest_foodsales.py \
+--excel-path "./data/[For candidate] de_challenge_data.xlsx" \
+--sheet FoodSales \
+--header-row 1 \
+--chunksize 20000 \
+--schema public \
+--table food_sales \
+--stage-table food_sales_staging
+```
+Any argument not specified will automatically fallback to the values in `.env`.
 
 ### 3. Run SQL Script to Create Summary Table
 ```bash
