@@ -1,0 +1,56 @@
+services:
+  postgres:
+    image: postgres:17                # PostgreSQL version 17
+    container_name: db_postgres       # container name
+    environment:                      # DB config (from .env)
+      POSTGRES_DB: ${PGDATABASE}
+      POSTGRES_USER: ${PGUSER}
+      POSTGRES_PASSWORD: ${PGPASSWORD}
+    ports:
+      - "5432:5432"                   # expose DB on localhost:5432
+    volumes:
+      - pgdata:/var/lib/postgresql/data  # persist DB data
+    healthcheck:                      # wait until Postgres is ready
+      test: ["CMD-SHELL", "pg_isready -U ${PGUSER} -d ${PGDATABASE} -h 127.0.0.1"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 10s
+
+  ingest:
+    build:                            # build image from local Dockerfile
+      context: .
+      dockerfile: Dockerfile
+    container_name: foodsales_ingest  # ingestion job container
+    env_file:
+      - .env                          # load configs from .env
+    working_dir: /app
+    volumes:
+      - .:/app:ro                     # mount project folder (read-only)
+    depends_on:                       # wait for Postgres healthcheck
+      postgres:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Bangkok                # set timezone
+      PGHOST: postgres                # override host (Docker network)
+    command:                          # run ingestion script with params
+      - python
+      - ingest/ingest_foodsales.py
+      - --excel-path
+      - "${EXCEL_PATH}"
+      - --sheet
+      - "${EXCEL_SHEET}"
+      - --header-row
+      - "${HEADER_ROW}"
+      - --chunksize
+      - "${CHUNKSIZE}"
+      - --schema
+      - "${SCHEMA}"
+      - --table
+      - "${TABLE}"
+      - --stage-table
+      - "${STAGE_TABLE}"
+    tty: true                         # keep container interactive
+
+volumes:
+  pgdata:                             # named volume for DB persistence
